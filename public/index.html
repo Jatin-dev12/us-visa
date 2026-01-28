@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Visa Appointment Bot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🇺🇸 US Visa Appointment Bot</h1>
+            <p class="subtitle">Automated appointment monitoring and booking</p>
+        </header>
+
+        <div class="status-card">
+            <div class="status-header">
+                <h2>📊 Bot Status</h2>
+                <span class="status-badge" id="statusBadge">⚫ Stopped</span>
+            </div>
+            <div class="status-info">
+                <div class="info-item">
+                    <span class="label">🕐 Last Check</span>
+                    <span id="lastCheck" class="info-value">Never</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">📅 Available Dates</span>
+                    <span id="availableDates" class="info-value">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">🎯 Target Date</span>
+                    <span id="targetDate" class="info-value">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">⚙️ Mode</span>
+                    <span id="botMode" class="info-value">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-card">
+            <h2>🎯 Bot Configuration</h2>
+            <form id="botForm">
+                <div class="date-inputs">
+                    <div class="form-group">
+                        <label for="currentDate">
+                            <span class="label-icon">📅</span>
+                            Current Booked Date
+                        </label>
+                        <input type="date" id="currentDate" required>
+                        <small>Your existing appointment date</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="targetDateInput">
+                            <span class="label-icon">🎯</span>
+                            Target Date (Optional)
+                        </label>
+                        <input type="date" id="targetDateInput">
+                        <small>Stop when date is found before this</small>
+                    </div>
+                </div>
+                
+                <div class="mode-selector">
+                    <div class="mode-option" id="liveMode">
+                        <div class="mode-radio">
+                            <input type="radio" name="mode" value="live" id="liveModeRadio" checked>
+                            <label for="liveModeRadio">
+                                <span class="mode-icon">🚀</span>
+                                <span class="mode-title">Live Booking</span>
+                                <span class="mode-desc">Actually book appointments</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mode-option" id="testMode">
+                        <div class="mode-radio">
+                            <input type="radio" name="mode" value="test" id="testModeRadio">
+                            <label for="testModeRadio">
+                                <span class="mode-icon">🧪</span>
+                                <span class="mode-title">Test Mode</span>
+                                <span class="mode-desc">Dry run - no actual booking</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary" id="startBtn">
+                        <span class="btn-icon">▶️</span>
+                        Start Bot
+                    </button>
+                    <button type="button" class="btn btn-danger" id="stopBtn" disabled>
+                        <span class="btn-icon">⏹️</span>
+                        Stop Bot
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="logs-card">
+            <div class="logs-header">
+                <h2>📝 Activity Logs</h2>
+                <button class="btn btn-small" id="clearLogs">Clear Logs</button>
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <p class="log-empty">No logs yet. Start the bot to see activity.</p>
+            </div>
+        </div>
+
+        <div class="dates-card">
+            <div class="dates-header">
+                <h2>📆 Available Dates</h2>
+                <button class="btn btn-small btn-refresh" id="refreshDates">
+                    <span>🔄</span> Check Dates
+                </button>
+            </div>
+            <div id="datesContainer" class="dates-container">
+                <p class="dates-empty">Click "Check Dates" to see available appointments</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
