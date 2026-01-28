@@ -55,6 +55,9 @@ export class VisaHttpClient {
   }
 
   async book(headers, scheduleId, facilityId, date, time) {
+    // Add small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const url = `${this.baseUri}/schedule/${scheduleId}/appointment`;
 
     const bookingHeaders = await this._anonymousRequest(url, headers)
@@ -79,7 +82,26 @@ export class VisaHttpClient {
       'appointments[asc_appointment][time]': ''
     };
 
-    return this._submitFormWithRedirect(url, mergedHeaders, bookingData);
+    log(`Submitting booking for ${date} ${time}...`);
+    const response = await this._submitFormWithRedirect(url, mergedHeaders, bookingData);
+    
+    log(`Booking response status: ${response.status}`);
+    log(`Booking response URL: ${response.url}`);
+    
+    // Get response body to check for errors
+    const responseText = await response.text();
+    
+    if (responseText.includes('error') || responseText.includes('Error')) {
+      log(`⚠️ Possible error in booking response`);
+    }
+    
+    if (response.url.includes('continue_actions')) {
+      log(`✅ Booking successful - redirected to continue_actions`);
+    } else if (response.url.includes('appointment')) {
+      log(`⚠️ Still on appointment page - booking may have failed`);
+    }
+    
+    return response;
   }
 
   // Private request methods
@@ -125,9 +147,11 @@ export class VisaHttpClient {
       redirect: "follow",
       headers: {
         ...headers,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Connection': 'keep-alive'
       },
-      body: new URLSearchParams(formData)
+      body: new URLSearchParams(formData),
+      timeout: 30000 // 30 second timeout
     });
   }
 

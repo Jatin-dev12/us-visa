@@ -79,16 +79,45 @@ export class Bot {
       return true;
     }
 
-    await this.client.book(
-      sessionHeaders,
-      this.config.scheduleId,
-      this.config.facilityId,
-      date,
-      time
-    );
+    log(`Attempting to book appointment at ${date} ${time}...`);
+    
+    // Retry booking up to 3 times if socket hang up occurs
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.client.book(
+          sessionHeaders,
+          this.config.scheduleId,
+          this.config.facilityId,
+          date,
+          time
+        );
 
-    log(`booked time at ${date} ${time}`);
-    return true;
+        log(`booked time at ${date} ${time}`);
+        log(`Booking response status: ${response.status}`);
+        log(`Booking response URL: ${response.url}`);
+        
+        // Check if booking was successful by checking the redirect URL
+        if (response.url.includes('/continue_actions')) {
+          log(`✅ BOOKING CONFIRMED! Appointment successfully booked for ${date} ${time}`);
+          return true;
+        } else {
+          log(`⚠️ Booking may have failed. Response URL: ${response.url}`);
+          return false;
+        }
+      } catch (error) {
+        if (error.message.includes('socket hang up') && attempt < maxRetries) {
+          log(`⚠️ Socket hang up on attempt ${attempt}/${maxRetries}. Retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        log(`❌ Error booking appointment: ${error.message}`);
+        return false;
+      }
+    }
+    
+    log(`❌ Failed to book after ${maxRetries} attempts`);
+    return false;
   }
 
 }
