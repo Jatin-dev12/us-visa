@@ -27,8 +27,24 @@ app.post('/api/start', (req, res) => {
         return res.json({ success: false, message: 'Bot is already running' });
     }
 
-    const { currentDate, targetDate, dryRun } = req.body;
+    const { email, password, countryCode, scheduleId, facilityId, refreshDelay, currentDate, targetDate, dryRun } = req.body;
     
+    // Validate required fields
+    if (!email || !password || !countryCode || !scheduleId || !facilityId || !currentDate) {
+        return res.json({ success: false, message: 'Missing required fields' });
+    }
+
+    // Set environment variables for the bot process
+    const env = {
+        ...process.env,
+        EMAIL: email,
+        PASSWORD: password,
+        COUNTRY_CODE: countryCode,
+        SCHEDULE_ID: scheduleId,
+        FACILITY_ID: facilityId,
+        REFRESH_DELAY: refreshDelay || '3'
+    };
+
     const args = [
         'src/index.js',
         '-c', currentDate
@@ -46,7 +62,7 @@ app.post('/api/start', (req, res) => {
         botConfig.mode = 'Live Booking';
     }
 
-    botProcess = spawn('node', args);
+    botProcess = spawn('node', args, { env });
     
     botProcess.stdout.on('data', (data) => {
         const message = data.toString().trim();
@@ -108,16 +124,23 @@ app.get('/api/config', (req, res) => {
 });
 
 // Check available dates
-app.get('/api/dates', async (req, res) => {
+app.post('/api/dates', async (req, res) => {
     try {
-        const config = getConfig();
-        const client = new VisaHttpClient(config.countryCode, config.email, config.password);
+        const { email, password, countryCode, scheduleId, facilityId } = req.body;
         
-        addLog('Checking available dates...');
+        // Validate required fields
+        if (!email || !password || !countryCode || !scheduleId || !facilityId) {
+            return res.json({ error: 'Missing required fields', dates: [] });
+        }
+
+        addLog('Logging in to check available dates...');
+        const client = new VisaHttpClient(countryCode, email, password);
+        
         const sessionHeaders = await client.login();
+        addLog('Login successful, fetching dates...');
         
         // Get dates from the API
-        const url = `https://ais.usvisa-info.com/en-${config.countryCode}/niv/schedule/${config.scheduleId}/appointment/days/${config.facilityId}.json?appointments[expedite]=false`;
+        const url = `https://ais.usvisa-info.com/en-${countryCode}/niv/schedule/${scheduleId}/appointment/days/${facilityId}.json?appointments[expedite]=false`;
         
         const response = await fetch(url, {
             headers: {
@@ -127,22 +150,40 @@ app.get('/api/dates', async (req, res) => {
             }
         });
         
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await response.text();
+            throw new Error(`Expected JSON but got: ${text.substring(0, 100)}`);
+        }
+        
         const data = await response.json();
+        
+        // Check if data is an array
+        if (!Array.isArray(data)) {
+            throw new Error(`Expected array but got: ${typeof data}`);
+        }
         
         // Extract just the date strings
         const dates = data.map(item => item.date);
         
-        addLog(`Found ${dates.length} available dates`);
+        addLog(`Found ${dates.length} available dates`, 'success');
         
         res.json({ 
             dates: dates || [],
             total: dates.length,
-            facilityId: config.facilityId,
-            scheduleId: config.scheduleId
+            facilityId: facilityId,
+            scheduleId: scheduleId
         });
     } catch (error) {
-        addLog(`Error checking dates: ${error.message}`, 'error');
-        res.json({ error: error.message, dates: [] });
+        const errorMsg = error.message || 'Unknown error';
+        addLog(`Error checking dates: ${errorMsg}`, 'error');
+        console.error('Full error:', error);
+        res.json({ error: errorMsg, dates: [] });
     }
 });
 

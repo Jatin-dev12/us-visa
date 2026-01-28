@@ -41,6 +41,68 @@
         <div class="control-card">
             <h2>🎯 Bot Configuration</h2>
             <form id="botForm">
+                <div class="credentials-section">
+                    <h3>🔐 Account Credentials</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="email">
+                                <span class="label-icon">📧</span>
+                                Email
+                            </label>
+                            <input type="email" id="email" required placeholder="your.email@example.com">
+                            <small>Your visa appointment account email</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">
+                                <span class="label-icon">🔒</span>
+                                Password
+                            </label>
+                            <input type="password" id="password" required placeholder="Your password">
+                            <small>Your visa appointment account password</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="appointment-section">
+                    <h3>📋 Appointment Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="countryCode">
+                                <span class="label-icon">🌍</span>
+                                Country Code
+                            </label>
+                            <input type="text" id="countryCode" required placeholder="ca" value="ca">
+                            <small>Country code (e.g., ca, fr, br)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="scheduleId">
+                                <span class="label-icon">🆔</span>
+                                Schedule ID
+                            </label>
+                            <input type="text" id="scheduleId" required placeholder="71525742">
+                            <small>Found in URL when rescheduling</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="facilityId">
+                                <span class="label-icon">🏢</span>
+                                Facility ID
+                            </label>
+                            <input type="text" id="facilityId" required placeholder="94" value="94">
+                            <small>Facility/location ID</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="refreshDelay">
+                                <span class="label-icon">⏱️</span>
+                                Refresh Delay (seconds)
+                            </label>
+                            <input type="number" id="refreshDelay" min="1" max="60" value="3" required>
+                            <small>Time between checks (1-60 seconds)</small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="date-inputs">
                     <div class="form-group">
                         <label for="currentDate">
@@ -113,6 +175,7 @@
                     <span>🔄</span> Check Dates
                 </button>
             </div>
+            <p class="dates-instruction">💡 Click on any date below to select it as your target booking date</p>
             <div id="datesContainer" class="dates-container">
                 <p class="dates-empty">Click "Check Dates" to see available appointments</p>
             </div>

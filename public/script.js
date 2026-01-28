@@ -20,7 +20,38 @@ const datesContainer = document.getElementById('datesContainer');
 document.addEventListener('DOMContentLoaded', () => {
     checkBotStatus();
     loadConfig();
+    loadSavedCredentials();
 });
+
+// Load saved credentials from localStorage
+function loadSavedCredentials() {
+    const savedData = localStorage.getItem('visaBotCredentials');
+    if (savedData) {
+        try {
+            const data = JSON.parse(savedData);
+            if (data.email) document.getElementById('email').value = data.email;
+            if (data.countryCode) document.getElementById('countryCode').value = data.countryCode;
+            if (data.scheduleId) document.getElementById('scheduleId').value = data.scheduleId;
+            if (data.facilityId) document.getElementById('facilityId').value = data.facilityId;
+            if (data.refreshDelay) document.getElementById('refreshDelay').value = data.refreshDelay;
+            // Note: We don't save password for security reasons
+        } catch (e) {
+            console.error('Error loading saved credentials:', e);
+        }
+    }
+}
+
+// Save credentials to localStorage (except password)
+function saveCredentials() {
+    const data = {
+        email: document.getElementById('email').value,
+        countryCode: document.getElementById('countryCode').value,
+        scheduleId: document.getElementById('scheduleId').value,
+        facilityId: document.getElementById('facilityId').value,
+        refreshDelay: document.getElementById('refreshDelay').value
+    };
+    localStorage.setItem('visaBotCredentials', JSON.stringify(data));
+}
 
 // Form submission
 botForm.addEventListener('submit', async (e) => {
@@ -33,20 +64,33 @@ clearLogsBtn.addEventListener('click', clearLogs);
 refreshDatesBtn.addEventListener('click', checkAvailableDates);
 
 async function startBot() {
+    // Get all form values
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const countryCode = document.getElementById('countryCode').value;
+    const scheduleId = document.getElementById('scheduleId').value;
+    const facilityId = document.getElementById('facilityId').value;
+    const refreshDelay = document.getElementById('refreshDelay').value;
     const currentDate = document.getElementById('currentDate').value;
     const targetDateValue = document.getElementById('targetDateInput').value;
     const dryRun = document.getElementById('testModeRadio').checked;
 
-    if (!currentDate) {
-        alert('Please enter current booked date');
+    // Validate required fields
+    if (!email || !password || !countryCode || !scheduleId || !facilityId || !currentDate) {
+        alert('Please fill in all required fields');
         return;
     }
+
+    // Save credentials (except password)
+    saveCredentials();
 
     // Show confirmation for live mode
     if (!dryRun) {
         const confirm = window.confirm(
             '⚠️ LIVE BOOKING MODE\n\n' +
             'The bot will ACTUALLY BOOK appointments when it finds dates.\n\n' +
+            'Email: ' + email + '\n' +
+            'Country: ' + countryCode.toUpperCase() + '\n' +
             'Current Date: ' + currentDate + '\n' +
             'Target Date: ' + (targetDateValue || 'Any earlier date') + '\n\n' +
             'Are you sure you want to continue?'
@@ -65,6 +109,12 @@ async function startBot() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                email,
+                password,
+                countryCode,
+                scheduleId,
+                facilityId,
+                refreshDelay: parseInt(refreshDelay),
                 currentDate,
                 targetDate: targetDateValue || null,
                 dryRun
@@ -142,17 +192,64 @@ async function loadConfig() {
 }
 
 async function checkAvailableDates() {
+    // Get credentials from form
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const countryCode = document.getElementById('countryCode').value;
+    const scheduleId = document.getElementById('scheduleId').value;
+    const facilityId = document.getElementById('facilityId').value;
+
+    if (!email || !password || !countryCode || !scheduleId || !facilityId) {
+        alert('Please fill in all credentials and appointment details first');
+        return;
+    }
+
+    // Save credentials (except password)
+    saveCredentials();
+
     refreshDatesBtn.disabled = true;
     refreshDatesBtn.innerHTML = '<span>⏳</span> Loading...';
     
     try {
-        const response = await fetch(`${API_URL}/dates`);
+        addLog('🔍 Checking available dates...', '');
+        
+        const response = await fetch(`${API_URL}/dates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                password,
+                countryCode,
+                scheduleId,
+                facilityId
+            })
+        });
+        
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+        }
+        
         const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
         
         if (data.dates && data.dates.length > 0) {
             displayDates(data.dates);
             availableDates.textContent = `${data.dates.length} dates`;
             addLog(`✅ Found ${data.dates.length} available dates`, 'success');
+        } else if (data.dates && data.dates.length === 0) {
+            datesContainer.innerHTML = '<p class="dates-empty">✅ Connected successfully, but no dates are currently available. Try again later.</p>';
+            availableDates.textContent = '0 dates';
+            addLog('✅ Connected successfully - No dates available at this time', 'success');
         } else {
             datesContainer.innerHTML = '<p class="dates-empty">No dates available</p>';
             availableDates.textContent = '0 dates';
@@ -161,6 +258,7 @@ async function checkAvailableDates() {
     } catch (error) {
         datesContainer.innerHTML = '<p class="dates-empty">Error loading dates</p>';
         addLog(`❌ Error checking dates: ${error.message}`, 'error');
+        console.error('Full error:', error);
     } finally {
         refreshDatesBtn.disabled = false;
         refreshDatesBtn.innerHTML = '<span>🔄</span> Check Dates';
@@ -208,6 +306,11 @@ function displayDates(dates) {
                 dateEl.title = '⭐ Target year!';
             }
             dateEl.textContent = date;
+            
+            // Add click handler to select this date
+            dateEl.addEventListener('click', () => selectDate(date, dates));
+            dateEl.style.cursor = 'pointer';
+            
             yearDates.appendChild(dateEl);
         });
         
@@ -215,6 +318,47 @@ function displayDates(dates) {
         yearSection.appendChild(yearDates);
         datesContainer.appendChild(yearSection);
     });
+}
+
+function selectDate(selectedDate, allDates) {
+    // Set the selected date as target date
+    document.getElementById('targetDateInput').value = selectedDate;
+    
+    // Find a date after the selected date to set as current booked date
+    // This ensures the bot will try to book the selected date
+    const selectedDateObj = new Date(selectedDate);
+    
+    // Find the last available date or add 6 months to selected date
+    let currentDate;
+    const lastDate = allDates[allDates.length - 1];
+    const lastDateObj = new Date(lastDate);
+    
+    // Set current date to be after the selected date
+    // Use the last available date + 1 day, or selected date + 6 months
+    if (lastDateObj > selectedDateObj) {
+        // Use a date after the last available date
+        const futureDate = new Date(lastDateObj);
+        futureDate.setDate(futureDate.getDate() + 30); // 30 days after last available
+        currentDate = futureDate.toISOString().split('T')[0];
+    } else {
+        // Add 6 months to selected date
+        const futureDate = new Date(selectedDateObj);
+        futureDate.setMonth(futureDate.getMonth() + 6);
+        currentDate = futureDate.toISOString().split('T')[0];
+    }
+    
+    document.getElementById('currentDate').value = currentDate;
+    
+    // Visual feedback
+    document.querySelectorAll('.date-item').forEach(el => el.classList.remove('selected'));
+    event.target.classList.add('selected');
+    
+    // Show confirmation message
+    addLog(`📅 Selected date: ${selectedDate}`, 'success');
+    addLog(`📌 Current date set to: ${currentDate} (bot will try to book ${selectedDate})`, '');
+    
+    // Scroll to form
+    document.getElementById('botForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function updateBotStatus(running) {
